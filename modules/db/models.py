@@ -7,7 +7,13 @@ from modules.config import config
 
 logger = init_logger(__name__)
 engine = create_async_engine(url=f"sqlite+aiosqlite:///{config.DB_DSN}")
-logger.debug(f"Engine created: {engine.url}")
+if engine:
+    logger.debug(f"Engine created: {engine.url}")
+else:
+    logger.error(
+        f"Failed to create engine. Please check the configuration and restart the application."
+    )
+    SystemExit()
 
 async_session = async_sessionmaker(engine)
 
