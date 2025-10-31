@@ -1,0 +1,80 @@
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram import Bot
+from modules.db.requests import get_chat_trackings
+
+
+# main
+async def menu_main() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📃 Repositories")],
+            [KeyboardButton(text="❔ Help")],
+            [KeyboardButton(text="ℹ️ About")],
+        ],
+        resize_keyboard=True,
+    )
+    return kb
+
+
+# repositories
+async def menu_repos() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="➕ Add Repository"),
+                KeyboardButton(text="➖ Remove Repository"),
+            ],
+            [
+                KeyboardButton(text="📋 List of Repositories"),
+            ],
+            [
+                KeyboardButton(text="🔙 Return"),
+            ],
+        ],
+        resize_keyboard=True,
+    )
+    return kb
+
+
+# return button keyboard
+async def menu_return() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🔙 Return"),
+            ]
+        ],
+        resize_keyboard=True,
+    )
+    return kb
+
+
+# trackings list inline keyboard with modes
+async def menu_repos_list(
+    bot: Bot, chat_id: int, mode: str = "view"
+) -> InlineKeyboardMarkup | None:
+
+    trackings = await get_chat_trackings(chat_id)
+    if not trackings:
+        await bot.send_message(
+            chat_id, "📭 The list of tracked repositories is currently empty."
+        )
+        return None
+
+    kb = InlineKeyboardBuilder()
+    for id, provider, namespace, repository, url in trackings:  # type: ignore
+        if mode == "delete":
+            text = f"❌ {provider}: {namespace}/{repository}"
+            kb.button(
+                text=text,
+                callback_data=f"delete_{id}",
+            )
+        else:
+            text = f"{provider}: {namespace}/{repository}"
+            kb.button(
+                text=text,
+                url=url,
+                callback_data=f"view_{id}",
+            )
+    return kb.adjust(1).as_markup()  # type: ignore
