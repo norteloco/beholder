@@ -111,7 +111,7 @@ async def get_chat_trackings(chat_id: int):
             select(Tracking).where(Tracking.chat_id == chat_id)
         )
         if tracks:
-            return tracks
+            return tracks.all()
         else:
             logger.debug(
                 f"Table {Tracking.__tablename__}: Unable to find record in database."
