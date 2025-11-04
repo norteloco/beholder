@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, String, ForeignKey, DateTime
+from sqlalchemy import BigInteger, String, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 
@@ -37,3 +37,7 @@ class Tracking(Base):
     fullname: Mapped[str] = mapped_column()
     url: Mapped[str] = mapped_column()
     version: Mapped[str | None] = mapped_column(nullable=True)
+
+async def db_init():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
