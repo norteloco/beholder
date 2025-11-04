@@ -38,6 +38,6 @@ class Tracking(Base):
     url: Mapped[str] = mapped_column()
     version: Mapped[str | None] = mapped_column(nullable=True)
 
-async def db_init():
+async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
