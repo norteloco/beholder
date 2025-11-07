@@ -1,0 +1,187 @@
+from aiogram import Bot, Router, html, F
+from aiogram.filters import CommandStart, Command
+from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
+
+import modules.keyboards as kb
+from modules.states import MenuStates
+from modules.providers import repository_detect
+from modules.db.requests import add_chat, add_tracking, del_tracking
+from app import bot
+
+router = Router()
+
+
+# start
+@router.message(CommandStart())
+async def command_start_handler(message: Message):
+    await add_chat(message.chat.id)
+    await message.answer(
+        f"""
+👋 Hi! I'm a bot that will notify you about new releases in the repositories.
+More information is available in the ❔ Help menu or by typing /help.
+        """,
+        reply_markup=await kb.menu_main(),
+    )
+
+
+# repos
+@router.message(Command("repos"))
+@router.message(MenuStates.repos_menu)
+@router.message(F.text == "📃 Repositories")
+async def command_repos_handler(message: Message, state: FSMContext):
+    data = await state.update_data(msg=message.text)
+    msg = data["msg"].strip()  # type: ignore
+    if msg == "🔙 Return":
+        await state.clear()
+        await message.answer(
+            "What do you want to do?",
+            reply_markup=await kb.menu_repos(),
+        )
+        return
+    await message.answer(
+        "What do you want to do with repositories?", reply_markup=await kb.menu_repos()
+    )
+
+
+# help
+@router.message(Command("help"))
+@router.message(F.text == "❔ Помощь")
+async def command_help_handler(message: Message):
+    await message.answer(
+        f"""
+{html.bold('Repo Watchtower')} is a bot for tracking releases in repositories.
+
+The following providers are currently supported:
+    - {html.italic('GitHub')}
+    - {html.italic('GitLab')}
+    - {html.italic('Docker Hub')}
+    
+To control the bot, use the menu or commands.
+
+{html.bold('Команды')}:
+/start — launch the bot
+/repos — go to the repository actions menu
+/list — view the list of monitored repositories
+/add — add a repository to monitor
+/del — remove a repository from monitored lists
+/help — view help
+/about — information about the bot
+        """,
+        reply_markup=await kb.menu_main(),
+    )
+
+
+## about
+@router.message(Command("about"))
+@router.message(F.text == "ℹ️ О боте")
+async def command_about_handler(message: Message):
+    await message.answer(
+        f"""
+Information about the bot.
+
+- Version: 0.1.0
+- Author: @norteloco
+
+        """,
+        reply_markup=await kb.menu_main(),
+    )
+
+
+# add repisytory tracking
+@router.message(Command("add"))
+@router.message(F.text == "➕ Add Repository")
+async def command_repo_add_handler(message: Message, state: FSMContext):
+    await state.set_state(MenuStates.track_add)
+    await message.answer(
+        f'Please provide a link to your {html.bold("GitHub")}, {html.bold("GitLab")} or {html.bold("Docker Hub")} repository.',
+        reply_markup=await kb.menu_return(),
+    )
+
+
+@router.message(MenuStates.track_add)
+async def state_repo_add_handler(message: Message, state: FSMContext):
+    data = await state.update_data(msg=message.text)
+    msg = data["msg"].strip()  # type: ignore
+    if msg == "🔙 Return":
+        await state.set_state(MenuStates.repos_menu)
+        await message.answer(
+            "What do you want to do with repositories?",
+            reply_markup=await kb.menu_repos(),
+        )
+        return
+
+    provider, namespace, repository, fullname, url = repository_detect(msg)
+    if provider and fullname:
+        await add_tracking(message.chat.id, provider, namespace, repository, fullname, url)  # type: ignore
+        await message.answer(
+            f"✅ Subscription added!\n{provider}: {fullname}",
+            reply_markup=await kb.menu_return(),
+        )
+    else:
+        await message.answer(
+            f"❌ The source could not be determined. Please check that the URL you entered is correct and try again.",
+            reply_markup=await kb.menu_repos(),
+        )
+
+
+## del
+@router.message(Command("del"))
+@router.message(F.text == "➖ Remove Repository")
+async def command_repo_del_handler(message: Message, state: FSMContext):
+    await state.set_state(MenuStates.track_del)
+    await message.answer(
+        "Select the repository you want to delete from the list:",
+        reply_markup=await kb.menu_repos_list(bot, message.chat.id, "delete"),
+    )
+    await message.answer(
+        "Press 🔙 Return to cancel", reply_markup=await kb.menu_return()
+    )
+
+
+@router.message(MenuStates.track_del)
+async def repo_del_state_handler(message: Message, state: FSMContext):
+    data = await state.update_data(msg=message.text)
+    msg = data["msg"].strip()  # type: ignore
+    if msg == "🔙 Return":
+        await state.set_state(MenuStates.repos_menu)
+        await message.answer(
+            "What do you want to do?", reply_markup=await kb.menu_repos()
+        )
+        return
+
+
+@router.callback_query(F.data.startswith("delete_"))
+async def repo_del_callback_handler(callback: CallbackQuery):
+    track_id = int(callback.data.split("_")[1])  # type: ignore
+    if track_id:
+        await del_tracking(track_id)
+        await callback.answer("✅ Deleted")
+        await callback.message.edit_text(  # type: ignore
+            text="✅ Deleted",
+            reply_markup=await kb.menu_repos_list(bot, callback.message.chat.id, "delete"),  # type: ignore
+        )
+
+
+# list of tracked repos
+@router.message(Command("list"))
+@router.message(F.text == "📋 List of Repositories")
+async def command_repo_list_handler(message: Message, state: FSMContext):
+    await state.set_state(MenuStates.track_list)
+    await message.answer(
+        "List of tracked repositories:",
+        reply_markup=await kb.menu_repos_list(bot, message.chat.id, "view"),
+    )
+    await message.answer(f"What do you want to do?", reply_markup=await kb.menu_repos())
+
+
+@router.message(MenuStates.track_list)
+async def repo_list_handler(message: Message, state: FSMContext):
+    data = await state.update_data(msg=message.text)
+    msg = data["msg"].strip()  # type: ignore
+    if msg == "🔙 Return":
+        await state.set_state(MenuStates.repos_menu)
+        await message.answer(
+            "What do you want to do?", reply_markup=await kb.menu_main()
+        )
+        return
