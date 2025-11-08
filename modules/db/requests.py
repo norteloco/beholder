@@ -117,3 +117,15 @@ async def get_chat_trackings(chat_id: int):
                 f"Table {Tracking.__tablename__}: Unable to find record in database."
             )
             return None
+
+
+async def get_all_trackings():
+    async with async_session() as session:
+        tracks = await session.scalars(select(Tracking))
+        if tracks:
+            return tracks
+        else:
+            logger.debug(
+                f"Table {Tracking.__tablename__}: Unable to find any record in database."
+            )
+            return None
