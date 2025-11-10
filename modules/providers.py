@@ -38,6 +38,12 @@ class Provider(ABC):
         pass
 
     @classmethod
+    @abstractmethod
+    def parse_match(cls, match: re.Match) -> tuple[str, str]:
+        """Extract namespace and repository from regex match."""
+        pass
+
+    @classmethod
     def repository_detect(
         cls, link: str
     ) -> Tuple[
@@ -52,16 +58,24 @@ class Provider(ABC):
         link = link.strip().rstrip("/")
         for provider in Provider.registry:
             match = provider.regex.search(link)
-            if match:
-                namespace, repository = match.group(1), match.group(2).replace(
-                    ".git", ""
+
+            if not match:
+                continue
+
+            try:
+                namespace, repository = provider.parse_match(match)
+            except Exception as e:
+                logger.exception(
+                    f"Failed to parse repository for provider {provider.name}: {e}"
                 )
-                fullname = f"{namespace}/{repository}"
-                url = provider.url_fmt.format(
-                    namespace=namespace, repository=repository
-                )
-                logger.info(f"{provider.name} repository detected: {fullname}")
-                return provider.name, namespace, repository, fullname, url
+                continue
+
+            repository = repository.replace(".git", "")
+            fullname = f"{namespace}/{repository}"
+            url = provider.url_fmt.format(namespace=namespace, repository=repository)
+            logger.info(f"{provider.name} repository detected: {fullname}")
+            return provider.name, namespace, repository, fullname, url
+
         logger.warning(
             f"Unable to determine the provider for the link provided: {link}"
         )
@@ -73,6 +87,10 @@ class GitHubProvider(Provider):
     regex = re.compile(r"github\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/|$)")
     url_fmt = "https://github.com/{namespace}/{repository}"
     url_api = "https://api.github.com/repos"
+
+    @classmethod
+    def parse_match(cls, match: re.Match) -> tuple[str, str]:
+        return match.group(1), match.group(2)
 
     async def fetch_latest(
         self, session: ClientSession, namespace: str, repository: str
@@ -100,6 +118,10 @@ class GitLabProvider(Provider):
     url_fmt = "https://gitlab.com/{namespace}/{repository}"
     url_api = "https://gitlab.com/api/v4/projects"
 
+    @classmethod
+    def parse_match(cls, match: re.Match) -> tuple[str, str]:
+        return match.group(1), match.group(2)
+
     async def fetch_latest(
         self, session: ClientSession, namespace: str, repository: str
     ) -> str | None:
@@ -118,6 +140,15 @@ class DockerHubProvider(Provider):
     regex = re.compile(r"hub\.docker\.com/(?:r/([^/]+)/|_+/)?([^/]+)(?:/|$)")
     url_fmt = "https://hub.docker.com/r/{namespace}/{repository}"
     url_api = "https://hub.docker.com/v2/repositories"
+
+    @classmethod
+    def parse_match(cls, match: re.Match) -> tuple[str, str]:
+        namespace = match.group(1)
+        repository = match.group(2)
+        # для официальных образов — "library"
+        if not namespace or namespace in {"_", "", None}:
+            namespace = "library"
+        return namespace, repository
 
     async def fetch_latest(
         self, session: ClientSession, namespace: str, repository: str
