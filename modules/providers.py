@@ -115,7 +115,7 @@ class GitLabProvider(Provider):
 
 class DockerHubProvider(Provider):
     name = "Docker Hub"
-    regex = re.compile(r"hub\.docker\.com/(?:r/)?([^/]+)/([^/]+)(?:/|$)")
+    regex = re.compile(r"hub\.docker\.com/(?:r/([^/]+)/|_+/)?([^/]+)(?:/|$)")
     url_fmt = "https://hub.docker.com/r/{namespace}/{repository}"
     url_api = "https://hub.docker.com/v2/repositories"
 
