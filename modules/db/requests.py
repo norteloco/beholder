@@ -129,3 +129,12 @@ async def get_all_trackings():
                 f"Table {Tracking.__tablename__}: Unable to find any record in database."
             )
             return None
+
+
+# version update
+async def update_tracking_version(track_id: int, version: str):
+    async with async_session() as session:
+        await session.execute(
+            update(Tracking).where(Tracking.id == track_id).values(version=version)
+        )
+        await session.commit()
