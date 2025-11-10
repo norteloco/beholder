@@ -123,7 +123,7 @@ async def get_all_trackings():
     async with async_session() as session:
         tracks = await session.scalars(select(Tracking))
         if tracks:
-            return tracks
+            return tracks.all()
         else:
             logger.debug(
                 f"Table {Tracking.__tablename__}: Unable to find any record in database."
