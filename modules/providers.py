@@ -9,12 +9,6 @@ from modules.logger import init_logger
 
 logger = init_logger(__name__)
 
-# regular expressions
-# during testing, the matching expressions for gitlab and github were almost identical
-# GITHUB_RE = re.compile(r"github\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/|$)")
-# GITLAB_RE = re.compile(r"gitlab\.com/([^/]+)/([^/]+?)(?:\.git)?(?:/|$)")
-# DOCKER_RE = re.compile(r"hub\.docker\.com/(?:r/)?([^/]+)/([^/]+)(?:/|$)")
-
 # to detect only numbered versions in Docker Hub like v1.25.3 or 1.25.3 etc.
 SEMVER = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][\w.]+)?$")
 
