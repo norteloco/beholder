@@ -5,9 +5,8 @@ from aiogram.fsm.context import FSMContext
 
 import modules.keyboards as kb
 from modules.states import MenuStates
-from modules.providers import repository_detect
+from modules.providers import Provider
 from modules.db.requests import add_chat, add_tracking, del_tracking
-from app import bot
 
 router = Router()
 
@@ -46,7 +45,7 @@ async def command_repos_handler(message: Message, state: FSMContext):
 
 # help
 @router.message(Command("help"))
-@router.message(F.text == "❔ Помощь")
+@router.message(F.text == "❔ Help")
 async def command_help_handler(message: Message):
     await message.answer(
         f"""
@@ -74,7 +73,7 @@ To control the bot, use the menu or commands.
 
 ## about
 @router.message(Command("about"))
-@router.message(F.text == "ℹ️ О боте")
+@router.message(F.text == "ℹ️ About")
 async def command_about_handler(message: Message):
     await message.answer(
         f"""
@@ -111,7 +110,7 @@ async def state_repo_add_handler(message: Message, state: FSMContext):
         )
         return
 
-    provider, namespace, repository, fullname, url = repository_detect(msg)
+    provider, namespace, repository, fullname, url = Provider.repository_detect(msg)
     if provider and fullname:
         await add_tracking(message.chat.id, provider, namespace, repository, fullname, url)  # type: ignore
         await message.answer(
@@ -153,6 +152,7 @@ async def repo_del_state_handler(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("delete_"))
 async def repo_del_callback_handler(callback: CallbackQuery):
+    bot = callback.bot
     track_id = int(callback.data.split("_")[1])  # type: ignore
     if track_id:
         await del_tracking(track_id)
@@ -170,7 +170,7 @@ async def command_repo_list_handler(message: Message, state: FSMContext):
     await state.set_state(MenuStates.track_list)
     await message.answer(
         "List of tracked repositories:",
-        reply_markup=await kb.menu_repos_list(bot, message.chat.id, "view"),
+        reply_markup=await kb.menu_repos_list(message.bot, message.chat.id, "view"),
     )
     await message.answer(f"What do you want to do?", reply_markup=await kb.menu_repos())
 
