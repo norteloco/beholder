@@ -27,8 +27,9 @@ class Provider(ABC):
     def __init_subclass__(cls, **kwargs):
         """Automatically registers all children."""
         super().__init_subclass__(**kwargs)
-        if hasattr(cls, "regex") and cls.regex:
+        if not getattr(cls, "abstract", False):
             Provider.registry.append(cls)
+            logger.debug(f"Registered provider: {cls.__n
 
     @abstractmethod
     async def fetch_latest(
