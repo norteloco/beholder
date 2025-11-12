@@ -29,19 +29,19 @@ More information is available in the ❔ Help menu or by typing /help.
 @router.message(MenuStates.repos_menu)
 @router.message(F.text == "📃 Repositories")
 async def command_repos_handler(message: Message, state: FSMContext):
+    await state.set_state(MenuStates.repos_menu)
     data = await state.update_data(msg=message.text)
     msg = data["msg"].strip()  # type: ignore
     if msg == "🔙 Return":
         await state.clear()
         await message.answer(
             "What do you want to do?",
-            reply_markup=await kb.menu_repos(),
+            reply_markup=await kb.menu_main(),
         )
         return
     await message.answer(
         "What do you want to do with repositories?", reply_markup=await kb.menu_repos()
     )
-
 
 # help
 @router.message(Command("help"))
