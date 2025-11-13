@@ -29,11 +29,12 @@ class Provider(ABC):
         super().__init_subclass__(**kwargs)
         if not getattr(cls, "abstract", False):
             Provider.registry.append(cls)
-            logger.debug(f"Registered provider: {cls.__n
+            logger.debug(f"Registered provider: {cls.__name__}")
 
+    @classmethod
     @abstractmethod
     async def fetch_latest(
-        self, session: ClientSession, namespace: str, repository: str
+        cls, session: ClientSession, namespace: str, repository: str
     ) -> Optional[str] | None:
         """Returns the latest release version or tag."""
         pass
@@ -93,11 +94,12 @@ class GitHubProvider(Provider):
     def parse_match(cls, match: re.Match) -> tuple[str, str]:
         return match.group(1), match.group(2)
 
+    @classmethod
     async def fetch_latest(
-        self, session: ClientSession, namespace: str, repository: str
+        cls, session: ClientSession, namespace: str, repository: str
     ) -> str | None:
         headers = {"User-Agent": "repo-watchtower"}
-        url_release = f"{self.url_api}/{namespace}/{repository}/releases/latest"
+        url_release = f"{cls.url_api}/{namespace}/{repository}/releases/latest"
 
         # trying to get releases first
         releases = await fetch_json(session, url_release, headers)
@@ -105,7 +107,7 @@ class GitHubProvider(Provider):
             return releases.get("tag_name") or releases.get("name")  # type: ignore
 
         # if there are no releases, trying to get tags
-        url_tags = f"{self.url_api}/{namespace}/{repository}/tags"
+        url_tags = f"{cls.url_api}/{namespace}/{repository}/tags"
         tags = await fetch_json(session, url_tags, headers)
         if tags and isinstance(tags, list):
             return tags[0].get("name")
@@ -123,11 +125,12 @@ class GitLabProvider(Provider):
     def parse_match(cls, match: re.Match) -> tuple[str, str]:
         return match.group(1), match.group(2)
 
+    @classmethod
     async def fetch_latest(
-        self, session: ClientSession, namespace: str, repository: str
+        cls, session: ClientSession, namespace: str, repository: str
     ) -> str | None:
         path = quote_plus(f"{namespace}/{repository}")
-        url = f"{self.url_api}/{path}/repository/tags"
+        url = f"{cls.url_api}/{path}/repository/tags"
 
         tags = await fetch_json(session, url)
         if tags and isinstance(tags, list):
@@ -151,13 +154,14 @@ class DockerHubProvider(Provider):
             namespace = "library"
         return namespace, repository
 
+    @classmethod
     async def fetch_latest(
-        self, session: ClientSession, namespace: str, repository: str
+        cls, session: ClientSession, namespace: str, repository: str
     ) -> str | None:
         if namespace in {"_", "", None}:
             namespace = "library"
 
-        url = f"{self.url_api}/{namespace}/{repository}/tags?page_size=10&ordering=last_updated"
+        url = f"{cls.url_api}/{namespace}/{repository}/tags?page_size=10&ordering=last_updated"
         data = await fetch_json(session, url)
         if not data:
             return None
