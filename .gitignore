@@ -2,5 +2,5 @@
 .env
 __pycache__
 *.db
-*.log
+*.log*
 requirements.txt
