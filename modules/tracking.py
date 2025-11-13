@@ -22,7 +22,7 @@ async def process_tracking_item(bot: Bot, session: aiohttp.ClientSession, item):
             logger.warning(f"Unknown provider {item.provider} for {item.fullname}.")
             return
 
-        latest = await provider_cls.fetch_latest(session, item.namespace, item.repository)  # type: ignore
+        latest = await provider_cls.fetch_latest(session, item.namespace, item.repository)  
         if not latest:
             logger.debug(f"No new version found for {item.fullname}.")
             return
