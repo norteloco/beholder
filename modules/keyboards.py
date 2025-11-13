@@ -1,6 +1,9 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import Bot
+from aiogram.fsm.context import FSMContext
+
+from modules.states import MenuStates
 from modules.db.requests import get_chat_trackings
 
 
@@ -63,18 +66,18 @@ async def menu_repos_list(
         return None
 
     kb = InlineKeyboardBuilder()
-    for id, provider, namespace, repository, url in trackings:  # type: ignore
+    for item in trackings:
         if mode == "delete":
-            text = f"❌ {provider}: {namespace}/{repository}"
+            text = f"❌ {item.provider}: {item.namespace}/{item.repository}"
             kb.button(
                 text=text,
-                callback_data=f"delete_{id}",
+                callback_data=f"delete_{item.id}",
             )
         else:
-            text = f"{provider}: {namespace}/{repository}"
+            text = f"{item.provider}: {item.namespace}/{item.repository}"
             kb.button(
                 text=text,
-                url=url,
-                callback_data=f"view_{id}",
+                url=item.url,
+                callback_data=f"view_{item.id}",
             )
     return kb.adjust(1).as_markup()  # type: ignore
