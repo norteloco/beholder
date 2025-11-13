@@ -14,6 +14,9 @@ router = Router()
 # start
 @router.message(CommandStart())
 async def command_start_handler(message: Message):
+    """
+    Launching the bot and registering the chat in the database.
+    """
     await add_chat(message.chat.id)
     await message.answer(
         f"""
@@ -26,22 +29,32 @@ More information is available in the ❔ Help menu or by typing /help.
 
 # repos
 @router.message(Command("repos"))
-@router.message(MenuStates.repos_menu)
 @router.message(F.text == "📃 Repositories")
 async def command_repos_handler(message: Message, state: FSMContext):
+    """
+    Opening the repository interaction menu.
+        - Adding a repository for tracking
+        - Removing a repository from tracking
+        - Viewing the list
+    """
     await state.set_state(MenuStates.repos_menu)
+    await message.answer(
+        "What do you want to do with repositories?", reply_markup=await kb.menu_repos()
+    )
+
+
+@router.message(MenuStates.repos_menu)
+async def state_repos_handler(message: Message, state: FSMContext):
+    await state.clear()
     data = await state.update_data(msg=message.text)
-    msg = data["msg"].strip()  # type: ignore
+    msg = data["msg"].strip()
     if msg == "🔙 Return":
-        await state.clear()
         await message.answer(
             "What do you want to do?",
             reply_markup=await kb.menu_main(),
         )
         return
-    await message.answer(
-        "What do you want to do with repositories?", reply_markup=await kb.menu_repos()
-    )
+
 
 # help
 @router.message(Command("help"))
@@ -85,7 +98,6 @@ Information about the bot.
         """,
         reply_markup=await kb.menu_main(),
     )
-
 
 # add repisytory tracking
 @router.message(Command("add"))
@@ -131,7 +143,7 @@ async def command_repo_del_handler(message: Message, state: FSMContext):
     await state.set_state(MenuStates.track_del)
     await message.answer(
         "Select the repository you want to delete from the list:",
-        reply_markup=await kb.menu_repos_list(bot, message.chat.id, "delete"),
+        reply_markup=await kb.menu_repos_list(message.bot, message.chat.id, "delete"),
     )
     await message.answer(
         "Press 🔙 Return to cancel", reply_markup=await kb.menu_return()
