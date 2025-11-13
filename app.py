@@ -1,58 +1,128 @@
-import asyncio
-import logging
-import sys
-from os import getenv
+import asyncio, signal
 
+from contextlib import suppress
 from aiogram import Bot, Dispatcher, html
 from aiogram.client.default import DefaultBotProperties
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiohttp import web
 
-# Bot token can be obtained via https://t.me/BotFather
-TOKEN = getenv("BOT_TOKEN")
+from modules.logger import init_logger
+from modules.config import config
+from modules.handlers import router
+from modules.db.models import init_db
+from modules.tracking import start_tracking
 
-# All handlers should be attached to the Router (or Dispatcher)
-
-dp = Dispatcher()
+logger = init_logger(__name__)
 
 
-@dp.message(CommandStart())
-async def command_start_handler(message: Message) -> None:
+async def on_startup(app: web.Application):
     """
-    This handler receives messages with `/start` command
+    Runs when the application starts.
     """
-    # Most event objects have aliases for API methods that can be called in events' context
-    # For example if you want to answer to incoming message you can use `message.answer(...)` alias
-    # and the target chat will be passed to :ref:`aiogram.methods.send_message.SendMessage`
-    # method automatically or call API method directly via
-    # Bot instance: `bot.send_message(chat_id=message.chat.id, ...)`
-    await message.answer(f"Hello, {html.bold(message.from_user.full_name)}!")
+
+    logger.info("Starting the application.")
+
+    # database initialization
+    await init_db()
+
+    # setting up webhook if specified
+    if config.WEBHOOK_URL:
+        await bot.set_webhook(url=config.WEBHOOK_URL)
+        logger.info(f"Webhook set to {config.WEBHOOK_URL}")
+
+    # start tracking
+    app["tracking"] = asyncio.create_task(start_tracking(bot))
+    logger.info("Tracking task started.")
 
 
-@dp.message()
-async def echo_handler(message: Message) -> None:
+async def on_shutdown(app: web.Application):
     """
-    Handler will forward receive a message back to the sender
-
-    By default, message handler will handle all message types (like a text, photo, sticker etc.)
+    Called when the application terminates.
     """
-    try:
-        # Send a copy of the received message
-        await message.send_copy(chat_id=message.chat.id)
-    except TypeError:
-        # But not all the types is supported to be copied so need to handle it
-        await message.answer("Nice try!")
+
+    logger.info("Shutting down the application...")
+
+    # terminating the background task
+    tracking_task = app.get("tracking")
+    if tracking_task:
+        tracking_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await tracking_task
+
+    # removing webhook and close session
+    if config.WEBHOOK_URL:
+        await bot.delete_webhook()
+    await bot.session.close()
+    logger.info("Bot session closed.")
 
 
-async def main() -> None:
-    # Initialize Bot instance with default bot properties which will be passed to all API calls
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+def setup_signal_handlers(loop: asyncio.AbstractEventLoop):
+    """
+    Allows to terminate the program gracefully using Ctrl+C (SIGINT, SIGTERM).
 
-    # And the run events dispatching
-    await dp.start_polling(bot)
+    """
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(loop, sig)))
+
+
+async def shutdown(loop: asyncio.AbstractEventLoop, signal=None):
+    """
+    Clean shutdown.
+    """
+
+    if signal:
+        logger.info(f"Received exit signal {signal.name}...")
+
+    tasks = [t for t in asyncio.all_tasks(loop) if t is not asyncio.current_task()]
+    logger.info(f"Cancelling {len(tasks)} pending tasks...")
+
+    for task in tasks:
+        task.cancel()
+    with suppress(asyncio.CancelledError):
+        await asyncio.gather(*tasks)
+    loop.stop()
+    logger.info("Shutdown complete.")
+
+
+async def main():
+
+    # bot cofiguration
+    global bot
+    bot = Bot(
+        token=config.BOT_TOKEN,
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML,
+            link_preview_is_disabled=True,
+        ),
+    )
+
+    dp = Dispatcher()
+    dp.include_router(router)
+
+    # webhook mode
+    if config.WEBHOOK_URL:
+        webapp = web.Application()
+        webapp.on_startup.append(on_startup)
+        webapp.on_shutdown.append(on_shutdown)
+
+        SimpleRequestHandler(dp, bot).register(webapp, "/webhook")
+        setup_application(webapp, dp, bot=bot)
+
+        logger.info(f"Running server on {config.WEBHOOK_HOST}:{config.WEBHOOK_PORT}")
+        web.run_app(webapp, host=config.WEBHOOK_HOST, port=config.WEBHOOK_PORT)
+
+    # polling mode
+    else:
+        logger.info(f"No webhook was specified. Working in polling mode.")
+        await init_db()
+        asyncio.create_task(start_tracking(bot))
+
+        await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped manually.")
