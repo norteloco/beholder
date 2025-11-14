@@ -15,3 +15,8 @@ A small application for tracking new releases and tags in GitHub, Gitlab, and Do
 ## Suggestions and feedback
 
 You can contact me by [email](mailto:norteloco@outlook.com) or [telegram](https://t.me/norteloco).
+
+## To do
+Nearest plans:  
+- Docker image
+- Bug fixes
