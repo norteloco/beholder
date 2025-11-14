@@ -9,7 +9,7 @@ class Configuration:
     WEBHOOK_HOST: str = os.getenv("WEBHOOK_HOST", "0.0.0.0")
     WEBHOOK_PORT: int = int(os.getenv("WEBHOOK_PORT", "8080"))
     # polling
-    POLL_INTERVAL: int = int(os.getenv("CHECK_INTERVAL", "30"))
+    POLL_INTERVAL: int = int(os.getenv("CHECK_INTERVAL", "300"))
     # database
     DB_DSN: str = os.getenv("DB_DSN", "data/watcher.db")
     # logging
