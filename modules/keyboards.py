@@ -32,7 +32,7 @@ async def menu_repos() -> ReplyKeyboardMarkup:
                 KeyboardButton(text="📋 List of Repositories"),
             ],
             [
-                KeyboardButton(text="🔙 Return"),
+                KeyboardButton(text="🏠 Menu"),
             ],
         ],
         resize_keyboard=True,
@@ -54,15 +54,8 @@ async def menu_return() -> ReplyKeyboardMarkup:
 
 
 # trackings list inline keyboard with modes
-async def menu_repos_list(
-    bot: Bot, chat_id: int, mode: str = "view"
-) -> InlineKeyboardMarkup | None:
-
-    trackings = await get_chat_trackings(chat_id)
+async def menu_repos_list(trackings, mode: str = "view") -> InlineKeyboardMarkup | None:
     if not trackings:
-        await bot.send_message(
-            chat_id, "📭 The list of tracked repositories is currently empty."
-        )
         return None
 
     kb = InlineKeyboardBuilder()
