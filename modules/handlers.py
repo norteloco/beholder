@@ -83,7 +83,7 @@ async def command_about_handler(message: Message):
         f"""
 Information about the bot.
 
-- Version: 0.1.0
+- Version: 1.1.0
 - Author: @norteloco
 
         """,
