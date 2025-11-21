@@ -4,6 +4,8 @@
 
 A small application for tracking new releases and tags in GitHub, Gitlab, and Docker Hub repositories.
 
+- [Docker Hub Image](https://hub.docker.com/r/norteloco/beholder/tags)
+
 ## Tools used
 
 - [Python 3.11+](https://www.python.org/)
@@ -17,6 +19,6 @@ A small application for tracking new releases and tags in GitHub, Gitlab, and Do
 You can contact me by [email](mailto:norteloco@outlook.com) or [telegram](https://t.me/norteloco).
 
 ## To do
-Nearest plans:  
-- Docker image
-- Bug fixes
+
+- Support for additional providers
+- Finding and fixing bugs
